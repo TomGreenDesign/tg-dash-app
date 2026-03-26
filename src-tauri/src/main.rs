@@ -4,8 +4,8 @@
 use std::process::Command;
 use tauri::{
     menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder},
-    webview::{PageLoadEvent, PageLoadPayload},
-    Manager, Webview, WebviewUrl, WebviewWindowBuilder,
+    webview::NewWindowResponse,
+    WebviewUrl, WebviewWindowBuilder,
 };
 use tauri_plugin_deep_link::DeepLinkExt;
 use tauri_plugin_updater::UpdaterExt;
@@ -14,6 +14,11 @@ const APP_URL: &str = "https://dash.tomgreen.uk";
 const APP_HOST: &str = "dash.tomgreen.uk";
 const OTHER_HOST: &str = "docs.tomgreen.uk";
 const OTHER_SCHEME: &str = "tg-docs";
+
+fn open_url(url: &str) {
+    eprintln!("[tg-dash] open_url: {}", url);
+    let _ = Command::new("/usr/bin/open").arg(url).spawn();
+}
 
 fn main() {
     tauri::Builder::default()
@@ -72,26 +77,55 @@ fn main() {
 
             app.set_menu(menu)?;
 
-            // --- Create window with navigation handler ---
+            // --- Create window ---
             let window = WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
                 .title("TG Dash")
                 .inner_size(1280.0, 800.0)
                 .min_inner_size(800.0, 600.0)
-                .on_navigation(move |url| {
+                // JS that runs on every page load (including after redirects)
+                .initialization_script(r#"
+                    (function() {
+                        var host = window.location.hostname;
+                        if (host !== 'dash.tomgreen.uk' && host !== 'docs.tomgreen.uk') return;
+
+                        // Fix drag-to-reorder showing copy/insert instead of move in WKWebView
+                        document.addEventListener('dragstart', function(e) {
+                            if (e.target.closest('.tiptap') || e.target.closest('.drag-handle-icon')) {
+                                e.dataTransfer.effectAllowed = 'move';
+                            }
+                        }, true);
+                        document.addEventListener('dragover', function(e) {
+                            if (e.target.closest('.tiptap')) {
+                                e.dataTransfer.dropEffect = 'move';
+                            }
+                        }, true);
+                    })();
+                "#)
+                // Catch target="_blank" clicks and window.open() calls
+                .on_new_window(move |url, _features| {
                     let url_str = url.as_str();
+                    eprintln!("[tg-dash] on_new_window: {}", url_str);
 
-                    // Catch marker URLs from our window.open override
-                    if url_str.starts_with("__tg_external__:") {
-                        let real_url = &url_str["__tg_external__:".len()..];
-                        let _ = Command::new("open").arg(real_url).spawn();
-                        return false;
-                    }
-
-                    // Cross-app links → open via deep link scheme
                     if url.host_str() == Some(OTHER_HOST) {
                         let query = url.query().map(|q| format!("?{}", q)).unwrap_or_default();
                         let deep = format!("{}://{}{}", OTHER_SCHEME, url.path(), query);
-                        let _ = Command::new("open").arg(&deep).spawn();
+                        open_url(&deep);
+                    } else {
+                        open_url(url_str);
+                    }
+
+                    NewWindowResponse::Deny
+                })
+                // Catch regular (non-_blank) cross-domain navigations
+                .on_navigation(move |url| {
+                    let url_str = url.as_str();
+                    eprintln!("[tg-dash] on_navigation: {}", url_str);
+
+                    // Cross-app links → deep link scheme
+                    if url.host_str() == Some(OTHER_HOST) {
+                        let query = url.query().map(|q| format!("?{}", q)).unwrap_or_default();
+                        let deep = format!("{}://{}{}", OTHER_SCHEME, url.path(), query);
+                        open_url(&deep);
                         return false;
                     }
 
@@ -102,7 +136,7 @@ fn main() {
 
                     // External https/http → open in browser
                     if url.scheme() == "https" || url.scheme() == "http" {
-                        let _ = Command::new("open").arg(url_str).spawn();
+                        open_url(url_str);
                         return false;
                     }
 
@@ -137,7 +171,9 @@ fn main() {
             // --- Handle incoming deep links ---
             let dl_window = window.clone();
             app.deep_link().on_open_url(move |event| {
-                if let Some(url) = event.urls().first() {
+                let urls = event.urls();
+                eprintln!("[tg-dash] deep_link: {:?}", urls);
+                if let Some(url) = urls.first() {
                     let path = url.path();
                     let query = url.query().map(|q| format!("?{}", q)).unwrap_or_default();
                     let target = format!("{}{}{}", APP_URL, path, query);
@@ -164,62 +200,6 @@ fn main() {
             });
 
             Ok(())
-        })
-        .on_page_load(|webview: &Webview, payload: &PageLoadPayload<'_>| {
-            if payload.event() == PageLoadEvent::Finished {
-                let _ = webview.eval(
-                    r#"
-                    (function() {
-                        if (window.__tg_patched) return;
-                        window.__tg_patched = true;
-
-                        // Override window.open — WKWebView swallows these silently.
-                        // Convert to a marker navigation that Rust intercepts.
-                        window.open = function(url) {
-                            if (!url) return null;
-                            try {
-                                const parsed = new URL(url, window.location.origin);
-                                const f = document.createElement('iframe');
-                                f.style.display = 'none';
-                                f.src = '__tg_external__:' + parsed.href;
-                                document.body.appendChild(f);
-                                setTimeout(() => f.remove(), 100);
-                            } catch(_) {}
-                            return null;
-                        };
-
-                        // Intercept <a target="_blank"> clicks — convert to marker navigations
-                        document.addEventListener('click', function(e) {
-                            const link = e.target.closest('a');
-                            if (!link || !link.href) return;
-                            if (link.target === '_blank') {
-                                e.preventDefault();
-                                try {
-                                    const url = new URL(link.href);
-                                    const f = document.createElement('iframe');
-                                    f.style.display = 'none';
-                                    f.src = '__tg_external__:' + url.href;
-                                    document.body.appendChild(f);
-                                    setTimeout(() => f.remove(), 100);
-                                } catch(_) {}
-                            }
-                        }, true);
-
-                        // Fix drag-to-reorder showing copy/insert instead of move
-                        document.addEventListener('dragstart', function(e) {
-                            if (e.target.closest('.tiptap') || e.target.closest('.drag-handle-icon')) {
-                                e.dataTransfer.effectAllowed = 'move';
-                            }
-                        }, true);
-                        document.addEventListener('dragover', function(e) {
-                            if (e.target.closest('.tiptap')) {
-                                e.dataTransfer.dropEffect = 'move';
-                            }
-                        }, true);
-                    })();
-                    "#,
-                );
-            }
         })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
