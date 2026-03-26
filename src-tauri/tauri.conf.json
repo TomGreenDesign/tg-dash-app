@@ -1,22 +1,13 @@
 {
   "$schema": "https://raw.githubusercontent.com/tauri-apps/tauri/dev/crates/tauri-config-schema/schema.json",
   "productName": "TG Dash",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "identifier": "uk.tomgreen.dash",
   "build": {
     "frontendDist": "../src"
   },
   "app": {
-    "withGlobalTauri": true,
-    "windows": [
-      {
-        "title": "TG Dash",
-        "width": 1280,
-        "height": 800,
-        "minWidth": 800,
-        "minHeight": 600
-      }
-    ],
+    "windows": [],
     "security": {
       "csp": null
     }
@@ -34,7 +25,7 @@
   },
   "plugins": {
     "shell": {
-      "open": "^((mailto:\\w+)|(tel:\\w+)|(https?://\\w+)|(tg-dash://\\w*)|(tg-docs://\\w*)).+"
+      "open": true
     },
     "deep-link": {
       "desktop": {
