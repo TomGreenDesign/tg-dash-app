@@ -196,13 +196,24 @@ fn main() {
             tauri::async_runtime::spawn(async move {
                 let updater = match app_handle.updater() {
                     Ok(u) => u,
-                    Err(_) => return,
+                    Err(e) => {
+                        eprintln!("[tg-dash] updater init failed: {}", e);
+                        return;
+                    }
                 };
-                if let Ok(Some(update)) = updater.check().await {
-                    let _ = update
-                        .download_and_install(|_chunk, _total| {}, || {})
-                        .await;
-                    app_handle.restart();
+                match updater.check().await {
+                    Ok(Some(update)) => {
+                        eprintln!("[tg-dash] update available: {}", update.version);
+                        match update.download_and_install(|_, _| {}, || {}).await {
+                            Ok(_) => {
+                                eprintln!("[tg-dash] update installed, restarting");
+                                app_handle.restart();
+                            }
+                            Err(e) => eprintln!("[tg-dash] update install failed: {}", e),
+                        }
+                    }
+                    Ok(None) => eprintln!("[tg-dash] no update available"),
+                    Err(e) => eprintln!("[tg-dash] update check failed: {}", e),
                 }
             });
 
