@@ -10,13 +10,13 @@ use tauri::{
 use tauri_plugin_deep_link::DeepLinkExt;
 use tauri_plugin_updater::UpdaterExt;
 
-const APP_URL: &str = "https://dash.tomgreen.uk";
-const APP_HOST: &str = "dash.tomgreen.uk";
-const OTHER_HOST: &str = "docs.tomgreen.uk";
-const OTHER_SCHEME: &str = "tg-docs";
+const APP_URL: &str = "https://dash.mokimo.co.uk";
+const APP_HOST: &str = "dash.mokimo.co.uk";
+const OTHER_HOST: &str = "docs.mokimo.co.uk";
+const OTHER_SCHEME: &str = "mokimo-docs";
 
 fn open_url(url: &str) {
-    eprintln!("[tg-dash] open_url: {}", url);
+    eprintln!("[mokimo-dash] open_url: {}", url);
     let _ = Command::new("/usr/bin/open").arg(url).spawn();
 }
 
@@ -79,7 +79,7 @@ fn main() {
 
             // --- Create window ---
             let window = WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
-                .title("TG Dash")
+                .title("Mokimo Dash")
                 .inner_size(1280.0, 800.0)
                 .min_inner_size(800.0, 600.0)
                 .disable_drag_drop_handler()
@@ -87,7 +87,7 @@ fn main() {
                 .initialization_script(r#"
                     (function() {
                         var host = window.location.hostname;
-                        if (host !== 'dash.tomgreen.uk' && host !== 'docs.tomgreen.uk') return;
+                        if (host !== 'dash.mokimo.co.uk' && host !== 'docs.mokimo.co.uk') return;
 
                         // Fix drag-to-reorder showing copy/insert instead of move in WKWebView
                         document.addEventListener('dragstart', function(e) {
@@ -105,9 +105,9 @@ fn main() {
                 // Catch target="_blank" clicks and window.open() calls
                 .on_new_window(move |url, _features| {
                     let url_str = url.as_str();
-                    eprintln!("[tg-dash] on_new_window: {}", url_str);
+                    eprintln!("[mokimo-dash] on_new_window: {}", url_str);
 
-                    // Cross-app: other domain OR /tg-docs path on same domain
+                    // Cross-app: other domain OR /tg-docs route on same domain
                     let is_other_app = url.host_str() == Some(OTHER_HOST)
                         || (url.host_str() == Some(APP_HOST) && url.path().starts_with("/tg-docs"));
 
@@ -124,9 +124,9 @@ fn main() {
                 // Catch regular (non-_blank) cross-domain navigations
                 .on_navigation(move |url| {
                     let url_str = url.as_str();
-                    eprintln!("[tg-dash] on_navigation: {}", url_str);
+                    eprintln!("[mokimo-dash] on_navigation: {}", url_str);
 
-                    // Cross-app: other domain OR /tg-docs path on same domain
+                    // Cross-app: other domain OR /tg-docs route on same domain
                     let is_other_app = url.host_str() == Some(OTHER_HOST)
                         || (url.host_str() == Some(APP_HOST) && url.path().starts_with("/tg-docs"));
 
@@ -180,7 +180,7 @@ fn main() {
             let dl_window = window.clone();
             app.deep_link().on_open_url(move |event| {
                 let urls = event.urls();
-                eprintln!("[tg-dash] deep_link: {:?}", urls);
+                eprintln!("[mokimo-dash] deep_link: {:?}", urls);
                 if let Some(url) = urls.first() {
                     let path = url.path();
                     let query = url.query().map(|q| format!("?{}", q)).unwrap_or_default();
@@ -198,23 +198,23 @@ fn main() {
                 let updater = match app_handle.updater() {
                     Ok(u) => u,
                     Err(e) => {
-                        eprintln!("[tg-dash] updater init failed: {}", e);
+                        eprintln!("[mokimo-dash] updater init failed: {}", e);
                         return;
                     }
                 };
                 match updater.check().await {
                     Ok(Some(update)) => {
-                        eprintln!("[tg-dash] update available: {}", update.version);
+                        eprintln!("[mokimo-dash] update available: {}", update.version);
                         match update.download_and_install(|_, _| {}, || {}).await {
                             Ok(_) => {
-                                eprintln!("[tg-dash] update installed, restarting");
+                                eprintln!("[mokimo-dash] update installed, restarting");
                                 app_handle.restart();
                             }
-                            Err(e) => eprintln!("[tg-dash] update install failed: {}", e),
+                            Err(e) => eprintln!("[mokimo-dash] update install failed: {}", e),
                         }
                     }
-                    Ok(None) => eprintln!("[tg-dash] no update available"),
-                    Err(e) => eprintln!("[tg-dash] update check failed: {}", e),
+                    Ok(None) => eprintln!("[mokimo-dash] no update available"),
+                    Err(e) => eprintln!("[mokimo-dash] update check failed: {}", e),
                 }
             });
 
