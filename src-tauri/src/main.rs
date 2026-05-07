@@ -107,9 +107,9 @@ fn main() {
                     let url_str = url.as_str();
                     eprintln!("[mokimo-dash] on_new_window: {}", url_str);
 
-                    // Cross-app: other domain OR /tg-docs route on same domain
+                    // Cross-app: other domain OR /mokimo-docs route on same domain
                     let is_other_app = url.host_str() == Some(OTHER_HOST)
-                        || (url.host_str() == Some(APP_HOST) && url.path().starts_with("/tg-docs"));
+                        || (url.host_str() == Some(APP_HOST) && url.path().starts_with("/mokimo-docs"));
 
                     if is_other_app {
                         let query = url.query().map(|q| format!("?{}", q)).unwrap_or_default();
@@ -126,9 +126,9 @@ fn main() {
                     let url_str = url.as_str();
                     eprintln!("[mokimo-dash] on_navigation: {}", url_str);
 
-                    // Cross-app: other domain OR /tg-docs route on same domain
+                    // Cross-app: other domain OR /mokimo-docs route on same domain
                     let is_other_app = url.host_str() == Some(OTHER_HOST)
-                        || (url.host_str() == Some(APP_HOST) && url.path().starts_with("/tg-docs"));
+                        || (url.host_str() == Some(APP_HOST) && url.path().starts_with("/mokimo-docs"));
 
                     if is_other_app {
                         let query = url.query().map(|q| format!("?{}", q)).unwrap_or_default();
