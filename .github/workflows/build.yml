@@ -55,6 +55,7 @@ jobs:
 
       - name: Generate release notes
         id: notes
+        shell: bash
         run: |
           PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
           if [ -z "$PREV_TAG" ]; then
