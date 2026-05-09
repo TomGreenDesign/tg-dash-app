@@ -49,5 +49,5 @@ GitHub Actions builds for all three platforms on push to `main`. Download artifa
 
 | Identifier | `uk.co.mokimo.dash` |
 |---|---|
-| **Version** | `0.1.0` |
+| **Version** | `0.3.3` |
 | **Window** | 1280x800 (min 800x600) |
